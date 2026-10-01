@@ -1,0 +1,36 @@
+name: Linux ARM64 package smoke test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/linux-arm64.yml'
+      - '.github/workflows/release.yml'
+      - 'scripts/smoke-test-linux-arm64.cjs'
+      - 'package*.json'
+      - 'electron*'
+      - 'src/**'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '23'
+      - name: Install startup test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2 libgbm1
+      - run: npm ci
+      - run: npm --prefix src/client-viewer ci
+      - run: npm run build
+      - name: Package for ARM64 without publishing
+        run: npx --no-install electron-builder --linux --arm64 --dir --publish never
+      - name: Verify packaged architecture and startup
+        run: xvfb-run -a node scripts/smoke-test-linux-arm64.cjs dist/linux-arm64-unpacked

@@ -44,7 +44,8 @@ jobs:
             build_name: linux-x64
             build_command: build:linux
             artifact_name: 'dist/{*.AppImage,*.rpm,*.deb,*.yml}'
-          - os: ubuntu-latest
+          # Install native dependencies and compile V8 bytecode on the target CPU.
+          - os: ubuntu-22.04-arm
             platform: linux
             build_name: linux-arm64
             build_command: build:linux:arm64
@@ -102,6 +103,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfuse2
+
+      - name: Install ARM64 startup test dependencies
+        if: ${{ matrix.build_name == 'linux-arm64' }}
+        run: sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2 libgbm1
 
       - name: Create .env file for client-viewer with Google Analytics tag (macOS)
         if: ${{ matrix.platform == 'macos' }}
@@ -161,6 +166,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run ${{ matrix.build_command }}
+
+      - name: Verify Linux ARM64 package and startup
+        if: ${{ matrix.build_name == 'linux-arm64' }}
+        run: xvfb-run -a node scripts/smoke-test-linux-arm64.cjs dist/linux-arm64-unpacked
 
       - name: Rename Linux update manifest for non-x64
         if: ${{ matrix.platform == 'linux' }}
